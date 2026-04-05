@@ -6,7 +6,10 @@ from datetime import datetime, timedelta, timezone
 
 import feedparser
 
-RSS_URL = "https://www.mk.co.kr/rss/30000001"
+FEEDS = [
+    {"key": "mk", "name": "MK 매일경제", "url": "https://www.mk.co.kr/rss/30000001"},
+    {"key": "hankyung", "name": "한국경제", "url": "https://www.hankyung.com/feed/all-news"},
+]
 MAX_ARTICLES = 10
 KST = timezone(timedelta(hours=9))
 
@@ -28,6 +31,7 @@ hr { border: none; border-top: 1px solid #eee; margin: 1.5em 0; }
 ul { padding-left: 1.5em; }
 li { margin: 0.5em 0; }
 .back { margin-bottom: 1em; }
+.source-section { margin-bottom: 2em; }
 """
 
 
@@ -36,26 +40,28 @@ def strip_html(text):
     return re.sub(r"<[^>]+>", "", text).strip()
 
 
-def fetch_articles():
-    feed = feedparser.parse(RSS_URL)
+def fetch_articles(feed_url, feed_name):
+    feed = feedparser.parse(feed_url)
     if feed.bozo and not feed.entries:
-        print(f"Error parsing RSS: {feed.bozo_exception}", file=sys.stderr)
-        sys.exit(1)
+        print(f"Error parsing {feed_name} RSS: {feed.bozo_exception}", file=sys.stderr)
+        return []
     entries = feed.entries[:MAX_ARTICLES]
     if not entries:
-        print("No articles found in feed", file=sys.stderr)
-        sys.exit(1)
+        print(f"No articles found in {feed_name} feed", file=sys.stderr)
     return entries
 
 
-def write_markdown(entries, date_str, articles_dir):
-    lines = [f"# MK 매일경제 뉴스 - {date_str}\n"]
+def write_markdown(entries, date_str, articles_dir, feed_name):
+    lines = [f"# {feed_name} 뉴스 - {date_str}\n"]
     for i, entry in enumerate(entries, 1):
         title = strip_html(entry.get("title", "Untitled"))
         link = entry.get("link", "")
         desc = strip_html(entry.get("description", ""))
-        lines.append(f"---\n")
+        author = strip_html(entry.get("author", ""))
+        lines.append("---\n")
         lines.append(f"## {i}. [{title}]({link})\n")
+        if author:
+            lines.append(f"*{author}*\n")
         if desc:
             lines.append(f"{desc}\n")
     path = os.path.join(articles_dir, f"{date_str}.md")
@@ -64,7 +70,7 @@ def write_markdown(entries, date_str, articles_dir):
     print(f"Wrote {path}")
 
 
-def build_article_html(md_path, date_str):
+def build_article_html(md_path, date_str, back_href):
     with open(md_path, encoding="utf-8") as f:
         content = f.read()
 
@@ -85,6 +91,8 @@ def build_article_html(md_path, date_str):
                 body_parts.append(f"<h2>{html.escape(line[3:])}</h2>")
         elif line == "---":
             body_parts.append("<hr>")
+        elif line.startswith("*") and line.endswith("*"):
+            body_parts.append(f"<p><em>{html.escape(line[1:-1])}</em></p>")
         elif line:
             body_parts.append(f"<p>{html.escape(line)}</p>")
 
@@ -93,68 +101,101 @@ def build_article_html(md_path, date_str):
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MK News - {date_str}</title>
+<title>News - {date_str}</title>
 <style>{CSS}</style>
 </head>
 <body>
-<p class="back"><a href="../index.html">&larr; Back to archive</a></p>
+<p class="back"><a href="{back_href}">&larr; Back to archive</a></p>
 {"".join(body_parts)}
 </body>
 </html>"""
 
 
-def build_site(articles_dir, site_dir):
-    os.makedirs(os.path.join(site_dir, "articles"), exist_ok=True)
+def build_site(base_articles_dir, site_dir):
+    # Build per-source pages
+    for feed in FEEDS:
+        key = feed["key"]
+        name = feed["name"]
+        src_dir = os.path.join(base_articles_dir, key)
+        dst_dir = os.path.join(site_dir, key)
+        os.makedirs(dst_dir, exist_ok=True)
 
-    md_files = sorted(
-        [f for f in os.listdir(articles_dir) if f.endswith(".md")],
-        reverse=True,
-    )
+        if not os.path.isdir(src_dir):
+            continue
 
-    for md_file in md_files:
-        date_str = md_file.replace(".md", "")
-        md_path = os.path.join(articles_dir, md_file)
-        html_content = build_article_html(md_path, date_str)
-        html_path = os.path.join(site_dir, "articles", f"{date_str}.html")
-        with open(html_path, "w", encoding="utf-8") as f:
-            f.write(html_content)
+        md_files = sorted(
+            [f for f in os.listdir(src_dir) if f.endswith(".md")],
+            reverse=True,
+        )
 
-    links = "\n".join(
-        f'<li><a href="articles/{f.replace(".md", ".html")}">{f.replace(".md", "")}</a></li>'
-        for f in md_files
-    )
+        for md_file in md_files:
+            date_str = md_file.replace(".md", "")
+            md_path = os.path.join(src_dir, md_file)
+            html_content = build_article_html(md_path, date_str, "../index.html")
+            html_path = os.path.join(dst_dir, f"{date_str}.html")
+            with open(html_path, "w", encoding="utf-8") as f:
+                f.write(html_content)
+
+    # Build index page
+    sections = []
+    for feed in FEEDS:
+        key = feed["key"]
+        name = feed["name"]
+        src_dir = os.path.join(base_articles_dir, key)
+        if not os.path.isdir(src_dir):
+            continue
+
+        md_files = sorted(
+            [f for f in os.listdir(src_dir) if f.endswith(".md")],
+            reverse=True,
+        )
+        links = "\n".join(
+            f'<li><a href="{key}/{f.replace(".md", ".html")}">'
+            f'{f.replace(".md", "")}</a></li>'
+            for f in md_files
+        )
+        sections.append(f'<div class="source-section">\n<h2>{html.escape(name)}</h2>\n<ul>\n{links}\n</ul>\n</div>')
 
     index_html = f"""<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MK 매일경제 Daily News</title>
+<title>Daily Korean News Archive</title>
 <style>{CSS}</style>
 </head>
 <body>
-<h1>MK 매일경제 Daily News Archive</h1>
-<ul>
-{links}
-</ul>
+<h1>Daily Korean News Archive</h1>
+{"".join(sections)}
 </body>
 </html>"""
 
     with open(os.path.join(site_dir, "index.html"), "w", encoding="utf-8") as f:
         f.write(index_html)
-    print(f"Built site with {len(md_files)} article(s)")
+    print(f"Built site for {len(FEEDS)} source(s)")
 
 
 def main():
     base_dir = os.path.join(os.path.dirname(__file__), "..")
     articles_dir = os.path.join(base_dir, "articles")
     site_dir = os.path.join(base_dir, "site")
-    os.makedirs(articles_dir, exist_ok=True)
 
     date_str = datetime.now(KST).strftime("%Y-%m-%d")
 
-    entries = fetch_articles()
-    write_markdown(entries, date_str, articles_dir)
+    total = 0
+    for feed in FEEDS:
+        feed_articles_dir = os.path.join(articles_dir, feed["key"])
+        os.makedirs(feed_articles_dir, exist_ok=True)
+
+        entries = fetch_articles(feed["url"], feed["name"])
+        if entries:
+            write_markdown(entries, date_str, feed_articles_dir, feed["name"])
+            total += len(entries)
+
+    if total == 0:
+        print("No articles fetched from any feed", file=sys.stderr)
+        sys.exit(1)
+
     build_site(articles_dir, site_dir)
 
 

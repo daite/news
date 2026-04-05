@@ -9,6 +9,7 @@ import feedparser
 FEEDS = [
     {"key": "mk", "name": "MK 매일경제", "url": "https://www.mk.co.kr/rss/30000001"},
     {"key": "hankyung", "name": "한국경제", "url": "https://www.hankyung.com/feed/all-news"},
+    {"key": "nhk", "name": "NHK NEWS", "url": "https://news.web.nhk/n-data/conf/na/rss/cat0.xml"},
 ]
 MAX_ARTICLES = 10
 KST = timezone(timedelta(hours=9))

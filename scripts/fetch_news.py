@@ -3,6 +3,7 @@ import os
 import re
 import sys
 from datetime import datetime, timedelta, timezone
+from itertools import groupby
 
 import feedparser
 
@@ -33,6 +34,17 @@ ul { padding-left: 1.5em; }
 li { margin: 0.5em 0; }
 .back { margin-bottom: 1em; }
 .source-section { margin-bottom: 2em; }
+details { margin: 0.5em 0; }
+details > summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: #555;
+    list-style: none;
+    padding: 4px 0;
+}
+details > summary::before { content: "▶ "; font-size: 0.75em; }
+details[open] > summary::before { content: "▼ "; font-size: 0.75em; }
+details > ul { margin-top: 0.25em; }
 """
 
 
@@ -150,12 +162,28 @@ def build_site(base_articles_dir, site_dir):
             [f for f in os.listdir(src_dir) if f.endswith(".md")],
             reverse=True,
         )
-        links = "\n".join(
-            f'<li><a href="{key}/{f.replace(".md", ".html")}">'
-            f'{f.replace(".md", "")}</a></li>'
-            for f in md_files
+
+        def month_key(f):
+            return f[:7]  # YYYY-MM
+
+        month_blocks = []
+        for month, files in groupby(md_files, key=month_key):
+            items = "\n".join(
+                f'<li><a href="{key}/{f.replace(".md", ".html")}">'
+                f'{f.replace(".md", "")}</a></li>'
+                for f in files
+            )
+            open_attr = ' open' if month == md_files[0][:7] else ''
+            month_blocks.append(
+                f'<details{open_attr}>\n<summary>{html.escape(month)}</summary>\n'
+                f'<ul>\n{items}\n</ul>\n</details>'
+            )
+
+        sections.append(
+            f'<div class="source-section">\n<h2>{html.escape(name)}</h2>\n'
+            + "\n".join(month_blocks)
+            + '\n</div>'
         )
-        sections.append(f'<div class="source-section">\n<h2>{html.escape(name)}</h2>\n<ul>\n{links}\n</ul>\n</div>')
 
     index_html = f"""<!DOCTYPE html>
 <html lang="ko">

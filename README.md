@@ -1,6 +1,6 @@
 # news
 
-Daily Korean news aggregator that fetches top articles from Korean and Japanese financial news sources via RSS, builds a static HTML archive, deploys to GitHub Pages, and sends Telegram notifications.
+Daily news aggregator that fetches top articles from Korean, Japanese, and international news sources via RSS, builds a static HTML archive, deploys to GitHub Pages, and sends Telegram notifications.
 
 **Live site**: https://daite.github.io/news/
 
@@ -11,11 +11,12 @@ Daily Korean news aggregator that fetches top articles from Korean and Japanese 
 | `mk` | [MK 매일경제](https://www.mk.co.kr) | Korean |
 | `hankyung` | [한국경제](https://www.hankyung.com) | Korean |
 | `nhk` | [NHK NEWS](https://www3.nhk.or.jp/news/) | Japanese |
+| `bbc` | [BBC News](https://www.bbc.com/news) | English |
 
 ## How it works
 
 1. **Fetch** — `scripts/fetch_news.py` pulls the top 10 articles from each RSS feed and saves them as Markdown files under `articles/<source>/<YYYY-MM-DD>.md`.
-2. **Build** — The same script renders per-day HTML pages and an index listing all archived dates, writing output to `site/`.
+2. **Build** — The same script renders per-day HTML pages and an index listing all archived dates grouped by month, writing output to `site/`.
 3. **Deploy** — GitHub Actions commits the new articles, uploads the `site/` directory as a Pages artifact, and deploys it.
 4. **Notify** — A Telegram message is sent on both success and failure.
 
@@ -28,9 +29,12 @@ The workflow runs automatically every day at **5:00 AM KST** (20:00 UTC) and can
 ├── articles/
 │   ├── mk/           # MK 매일경제 markdown files
 │   ├── hankyung/     # 한국경제 markdown files
-│   └── nhk/          # NHK NEWS markdown files
+│   ├── nhk/          # NHK NEWS markdown files
+│   └── bbc/          # BBC News markdown files
 ├── scripts/
 │   └── fetch_news.py # Fetch, build, and site-generation script
+├── tests/
+│   └── test_fetch_news.py  # Unit tests (48 tests, stdlib unittest)
 ├── .github/
 │   └── workflows/
 │       └── fetch_news.yml
@@ -59,8 +63,16 @@ Trigger the workflow from the **Actions** tab using the `workflow_dispatch` butt
 ```bash
 pip install -r requirements.txt
 python scripts/fetch_news.py
-# Opens site/index.html for the generated archive
+# Generates articles/ markdown and site/ HTML archive
 ```
+
+## Running tests
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+All tests use the Python standard library — no extra dependencies required.
 
 ## Requirements
 

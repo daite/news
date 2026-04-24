@@ -11,6 +11,7 @@ FEEDS = [
     {"key": "mk", "name": "MK 매일경제", "url": "https://www.mk.co.kr/rss/30000001"},
     {"key": "hankyung", "name": "한국경제", "url": "https://www.hankyung.com/feed/all-news"},
     {"key": "nhk", "name": "NHK NEWS", "url": "https://news.web.nhk/n-data/conf/na/rss/cat0.xml"},
+    {"key": "bbc", "name": "BBC News", "url": "https://feeds.bbci.co.uk/news/rss.xml"},
 ]
 MAX_ARTICLES = 10
 KST = timezone(timedelta(hours=9))

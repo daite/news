@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 from fetch_news import (
     FEEDS,
     MAX_ARTICLES,
+    USER_AGENT,
     build_article_html,
     build_site,
     fetch_articles,
@@ -83,10 +84,10 @@ class TestFetchArticles(unittest.TestCase):
         self.assertEqual(fetch_articles("http://x.com/rss", "Test"), [])
 
     @patch("fetch_news.feedparser.parse")
-    def test_passes_url_to_feedparser(self, mock_parse):
+    def test_passes_url_and_browser_agent_to_feedparser(self, mock_parse):
         mock_parse.return_value = self._feed([])
         fetch_articles("http://example.com/feed", "Test")
-        mock_parse.assert_called_once_with("http://example.com/feed")
+        mock_parse.assert_called_once_with("http://example.com/feed", agent=USER_AGENT)
 
 
 class TestWriteMarkdown(unittest.TestCase):

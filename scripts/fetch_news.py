@@ -15,6 +15,10 @@ FEEDS = [
 ]
 MAX_ARTICLES = 10
 KST = timezone(timedelta(hours=9))
+USER_AGENT = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+)
 
 CSS = """
 body {
@@ -55,7 +59,7 @@ def strip_html(text):
 
 
 def fetch_articles(feed_url, feed_name):
-    feed = feedparser.parse(feed_url)
+    feed = feedparser.parse(feed_url, agent=USER_AGENT)
     if feed.bozo and not feed.entries:
         print(f"Error parsing {feed_name} RSS: {feed.bozo_exception}", file=sys.stderr)
         return []
